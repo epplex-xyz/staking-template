@@ -16,14 +16,12 @@ import {
   getMintLen,
   createInitializeMintInstruction,
   createInitializeTransferHookInstruction,
-  getTransferHookAccount,
+  getExtraAccountMetas,
   ASSOCIATED_TOKEN_PROGRAM_ID,
   createMintToInstruction,
   createTransferCheckedInstruction,
   getAssociatedTokenAddressSync,
   createAssociatedTokenAccountIdempotentInstruction,
-  getExtraAccountMetaAddress,
-  resolveExtraAccountMeta,
 } from "@solana/spl-token";
 
 describe("transfer-hook", () => {
@@ -182,23 +180,10 @@ describe("transfer-hook", () => {
     console.log("Transfer Signature:", tx);
   });
 
-  it("Staking", async () => {
-    const tx = await program.methods
-    .stake()
-    .accounts({
-      mint: mint.publicKey,
-      token: sourceTokenAccount,
-      stakingAccount: stakingAccount,
-    })
-    .signers([wallet.payer]).rpc();
-
-    console.log("Transfer Signature:", tx);
-  });
-
   it("Transfer Hook with Extra Account Meta", async () => {
     // 1 tokens
     const amount = 1 * 10 ** decimals;
-  
+
     // Standard token transfer instruction
     const transferInstruction = createTransferCheckedInstruction(
       sourceTokenAccount,
@@ -222,7 +207,7 @@ describe("transfer-hook", () => {
       {
         pubkey: stakingAccount,
         isSigner: false,
-        isWritable: false,
+        isWritable: true,
       },
       {
         pubkey: programId,

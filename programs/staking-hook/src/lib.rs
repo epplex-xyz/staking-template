@@ -28,10 +28,10 @@ pub mod staking_hook {
         ExtraAccountMeta::new_with_seeds(
             &[
                 Seed::Literal { bytes: "staking".as_bytes().to_vec() },
-                Seed::AccountKey { index: 2 } 
+                Seed::AccountKey { index: 1 } 
             ],
             false, // is_signer
-            false,  // is_writable
+            true,  // is_writable
         )?,
         ];
     
@@ -74,7 +74,9 @@ pub mod staking_hook {
     pub fn stake(ctx: Context<Stake>) -> Result<()> {
        
         let info = ctx.accounts.staking_account.to_account_info(); 
-        match info.try_borrow_mut_data() {
+        let data = info.try_borrow_mut_data()?;
+
+        match  StakingData::try_deserialize(&mut &data[..]) {
             Ok(_) => {
                 require!(ctx.accounts.staking_account.starting_time == 0, StakingErr::AlreadyStaked);
                 ctx.accounts.staking_account.starting_time = Clock::get()?.unix_timestamp;
@@ -94,13 +96,12 @@ pub mod staking_hook {
 
     pub fn transfer_hook(ctx: Context<TransferHook>, amount: u64) -> Result<()> {
 
-        let info = ctx.accounts.staking_account.to_account_info(); 
-        match info.try_borrow_mut_data() {
-            Ok(_) => {
-                // Deserialize
-                let mut reader = &info.try_borrow_mut_data()?[..];
-                let mut staking_account = StakingData::try_deserialize(&mut reader)?;
+        let info = ctx.accounts.staking_account.to_account_info();
+        let mut data = info.try_borrow_mut_data()?;
 
+        // Try and Deserialize the Account
+        match  StakingData::try_deserialize(&mut &data[..]) {
+            Ok(mut staking_account) => {
                 if staking_account.starting_time != 0 {
                     
                     // Update time and Unstake the NFT
@@ -108,11 +109,12 @@ pub mod staking_hook {
                     staking_account.starting_time = 0;
 
                     // Serialize it back and update the account
-                    staking_account.try_serialize(&mut (info.try_borrow_mut_data()?).as_mut())?;
+                    let mut writer = &mut data[..];
+                    staking_account.try_serialize(&mut writer)?;
                 }
             },
             Err(_) => {
-               // Do nothing
+            // Do nothing
             }
         }
         
@@ -179,6 +181,7 @@ pub struct TransferHook<'info> {
     )]
     pub extra_account_meta_list: UncheckedAccount<'info>,
     #[account(
+        mut,
         seeds = [b"staking", mint.key().as_ref()],
         bump
     )]
