@@ -105,7 +105,7 @@ pub mod staking_hook {
                 if staking_account.starting_time != 0 {
                     
                     // Update time and Unstake the NFT
-                    staking_account.time = Clock::get()?.unix_timestamp - staking_account.starting_time;
+                    staking_account.time = staking_account.time.checked_add(Clock::get()?.unix_timestamp - staking_account.starting_time).ok_or(StakingErr::Overflow)?;
                     staking_account.starting_time = 0;
 
                     // Serialize it back and update the account
@@ -227,4 +227,6 @@ impl Space for StakingData {
 pub enum StakingErr {
     #[msg("This NFT is already staked.")]
     AlreadyStaked,
+    #[msg("The time has overflown.")]
+    Overflow,
 }
